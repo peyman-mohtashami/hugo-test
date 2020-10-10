@@ -3,8 +3,20 @@
 {{ with .Param $taxonomy }}
   {{ $link_authors := site.Params.link_authors | default true }}
   {{ range $index, $value := . }}
+    {{ $generatedFileSrc := (printf "/content/authors/%s/generated.json" $value) }}
+    {{ $generatedFileData := "" }}
+    {{ if (fileExists $generatedFileSrc) }}
+    {{ $generatedFileData = getJSON $generatedFileSrc }}
+    {{ end }}
+    
     {{- $profile_page := site.GetPage (printf "/%s/%s" $taxonomy (. | urlize)) -}}
     {{- $name := $profile_page.Params.title | default ($value|markdownify) -}}
+    {{ if $generatedFileData }}
+    {{ if $generatedFileData.user.name }}
+    {{ $name = $generatedFileData.user.name }}
+    {{ end }}
+    {{ end }}
+
     {{- if gt $index 0 }}, {{ end -}}
     <span>
       {{- if and $profile_page $link_authors -}}

@@ -36,12 +36,29 @@
   {{ with site.GetPage (printf "/authors/%s" (path.Base (path.Split .Path).Dir)) }}
     {{ $link = .RelPermalink }}
   {{ end }}
+
+  {{ $author := "" }}
+  {{ if .Params.authors }}
+    {{ $author = index .Params.authors 0 }}
+  {{end}}
+  
+  {{ $generatedFileSrc := (printf "/content/authors/%s/generated.json" $author) }}
+  {{ $generatedFileData := "" }}
+  {{ if (fileExists $generatedFileSrc) }}
+  {{ $generatedFileData = getJSON $generatedFileSrc }}
+  {{ end }}
+  {{ $src := "" }}
   <div class="col-12 col-sm-auto people-person">
-    {{ $src := "" }}
-    {{if .Params.accounts.ohdsi_forum_name}}
+    {{ if $generatedFileData }}
+      {{ if $generatedFileData.user.avatar_template }}
+      {{ $src = $generatedFileData.user.avatar_template }}
+      {{ $src = replace $src "{size}" 270}}
+      {{ $src = printf "https://forums.ohdsi.org%s" $src}}
       {{ $avatar_shape := site.Params.avatar.shape | default "circle" }}
-      {{with $link}}<a href="{{.}}">{{end}}
-      {{ partial "avatar" (dict "person" .Params) }}
+      {{ if $src }}
+      <img class="avatar {{ .Params.class }} {{if eq $avatar_shape "square"}}avatar-square{{else}}avatar-circle{{end}}" src="{{$src}}" alt="{{.Params.name}}">
+      {{ end }}
+      {{ end }}
     {{else}}
       {{ if site.Params.avatar.gravatar }}
         {{ $src = printf "https://s.gravatar.com/avatar/%s?s=150" (md5 .Params.email) }}
@@ -56,8 +73,20 @@
     {{end}}
 
     <div class="portrait-title">
-      <h2>{{with $link}}<a href="{{.}}">{{end}}{{ .Params.title }}{{if $link}}</a>{{end}}</h2>
-      {{/*  <h2>{{with $link}}<a href="{{.}}">{{end}}{{ partial "bio" (dict "person" .Params "type" "name") }}{{if $link}}</a>{{end}}</h2>  */}}
+      <h2>{{with $link}}<a href="{{.}}">{{end}}
+        {{ if $generatedFileData }}
+        {{ if $generatedFileData.user.name }}
+        {{ $generatedFileData.user.name }}
+        {{ end }}
+        {{ else }}
+        {{ if .Params.Title }}
+        {{ .Params.Title }}
+        {{ end }}
+        {{ end }}
+
+        
+      {{if $link}}</a>{{end}}</h2>
+      
       {{ with .Params.role }}<h3>{{ . | markdownify | emojify }}</h3>{{ end }}
       {{ range .Params.organizations }}
       <h3>
@@ -65,7 +94,9 @@
         <span>{{ .name }}</span>
         {{ if .url }}</a>{{ end }}
       </h3>
-      {{ end }}      {{ if $show_social }}{{ partial "network_links" (dict "network" .Params.accounts) }}{{ end }}
+      {{ end }}
+      {{/*  {{ //TODO add website}}  */}}
+      {{ if $show_social }}{{ partial "network_links" (dict "network" .Params.accounts "generatedFileData" $generatedFileData) }}{{ end }}
       {{ if and $show_interests .Params.interests }}<p class="people-interests">{{ delimit .Params.interests ", " | markdownify | emojify }}</p>{{ end }}
     </div>
   </div>

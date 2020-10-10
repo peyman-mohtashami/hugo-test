@@ -42,7 +42,7 @@ education:
 # Academic Networking
 accounts:
   # Forum name on OHDSI forum
-  ohdsi_forum_name: {{ .Name }}
+  ohdsi_forum_name: 
   # Github dandle
   github_handle:
   # Google scholar identifier
@@ -55,6 +55,8 @@ accounts:
   twitter: 
   # Email address
   email: 
+  # Website
+  website: 
 
 # Honorific prefix (e.g. PhD) 
 honorificPrefix: 

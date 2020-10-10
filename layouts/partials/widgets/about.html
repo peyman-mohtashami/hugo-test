@@ -13,16 +13,30 @@
 {{ if not $person_page }}
   {{ errorf "Could not find an author page at `%s`. Please check the value of `author` in your About widget and create an associated author page if one does not already exist. See https://sourcethemes.com/academic/docs/page-builder/#about " $person_page_path }}
 {{end}}
+
 {{ $person := $person_page.Params }}
 {{ $avatar := ($person_page.Resources.ByType "image").GetMatch "*avatar*" }}
 {{ $avatar_shape := site.Params.avatar.shape | default "circle" }}
+
+{{ $generatedFileSrc := (printf "/content/authors/%s/generated.json" $author) }}
+{{ $generatedFileData := "" }}
+{{ if (fileExists $generatedFileSrc) }}
+{{ $generatedFileData = getJSON $generatedFileSrc }}
+{{ end }}
 
 <!-- About widget -->
 <div class="row">
   <div class="col-12 col-lg-4">
     <div id="profile">
-      {{if $person.accounts.ohdsi_forum_name }}
-      {{ partial "avatar" (dict "person" $person) }}
+      {{ if $generatedFileData }}
+        {{ if $generatedFileData.user.avatar_template }}
+        {{ $src := $generatedFileData.user.avatar_template }}
+        {{ $src = replace $src "{size}" 270}}
+        {{ $src = printf "https://forums.ohdsi.org%s" $src}}
+        {{ if $src }}
+        <img class="avatar {{ .class }} {{if eq $avatar_shape "square"}}avatar-square{{else}}avatar-circle{{end}}" src="{{$src}}" alt="{{$person.name}}">
+        {{ end }}
+        {{ end }}
       {{else}}
         {{ if site.Params.avatar.gravatar }}
         <img class="avatar {{if eq $avatar_shape "square"}}avatar-square{{else}}avatar-circle{{end}}" src="https://s.gravatar.com/avatar/{{ md5 $person.email }}?s=270')" alt="{{$person_page.Title}}">
@@ -33,8 +47,15 @@
       {{end }}
       
       <div class="portrait-title">
+        {{ if $generatedFileData }}
+        {{ if $generatedFileData.user.name }}
+        <h2>{{ $generatedFileData.user.name }}</h2>
+        {{ end }}
+        {{ else }}
+        {{ if $person_page.Title }}
         <h2>{{ $person_page.Title }}</h2>
-        {{/*  <h2>{{ partial "bio" (dict "person" $page.Params "type" "name") }}</h2>  */}}
+        {{ end }}
+        {{ end }}
 
         {{ with $person.role }}<h3>{{ . | markdownify | emojify }}</h3>{{ end }}
 
@@ -46,7 +67,7 @@
         </h3>
         {{ end }}
       </div>
-      {{ partial "network_links" (dict "network" $person.accounts) }}
+      {{ partial "network_links" (dict "network" $person.accounts "generatedFileData" $generatedFileData) }}
     </div>
   </div>
   <div class="col-12 col-lg-8">
@@ -56,7 +77,16 @@
     {{ $person_page.Content }}
 
     <div class="row">
-      {{/*  <p>{{ partial "bio" (dict "person" $page.Params "type" "full") }}</p>  */}}
+      {{ if $person.bio }}
+        <p>{{ $person.bio }}</p>
+      {{ else }}
+        {{ if $generatedFileData }}
+        {{ if $generatedFileData.user.bio_raw }}
+        <p>{{ $generatedFileData.user.bio_raw }}</p>
+        {{ end }}
+        {{ end }}
+      {{ end }}
+
       {{ with $person.interests }}
       <div class="col-md-5">
         <h3>{{ i18n "interests" | markdownify }}</h3>

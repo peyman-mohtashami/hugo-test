@@ -1,3 +1,4 @@
+{{ $generatedFileData := .generatedFileData }}
 {{ with .network }}
   <ul class="network-icon" aria-hidden="true">
     {{ with .ohdsi_collaborator_URL  }}
@@ -15,6 +16,7 @@
         </a>
       </li>
     {{ end }}
+    {{ if .ohdsi_forum_name }}
     {{ with .ohdsi_forum_name }}
       {{ $link := print "https://forums.ohdsi.org/u/" . }}
       {{ $scheme := (urls.Parse $link).Scheme }}
@@ -29,6 +31,23 @@
           <i class="fas fa-comments"></i>
         </a>
       </li>
+    {{ end }}
+    {{ else }}
+      {{ if $generatedFileData }}
+      {{ $link := print "https://forums.ohdsi.org/u/" $generatedFileData.user.username }}
+      {{ $scheme := (urls.Parse $link).Scheme }}
+      {{ $target := "" }}
+      {{ if not $scheme }}
+        {{ $link = .link | relLangURL }}
+      {{ else if in (slice "http" "https") $scheme }}
+        {{ $target = "target=\"_blank\" rel=\"noopener\"" }}
+      {{ end }}
+      <li>
+        <a href="{{ $link | safeURL }}" {{ $target | safeHTMLAttr }} data-toggle="tooltip" data-placement="top" title="OHDSI Forum">
+          <i class="fas fa-comments"></i>
+        </a>
+      </li>
+      {{ end }}
     {{ end }}
 
     {{ with .github_handle }}
@@ -101,6 +120,40 @@
           <i class="fas fa-envelope"></i>
         </a>
       </li>
+    {{ end }}
+
+    {{ if .website }}
+    {{ with .website }}
+      {{ $link :=  . }}
+      {{ $scheme := (urls.Parse $link).Scheme }}
+      {{ $target := "" }}
+      {{ if not $scheme }}
+        {{ $link = .link | relLangURL }}
+      {{ else if in (slice "http" "https") $scheme }}
+        {{ $target = "target=\"_blank\" rel=\"noopener\"" }}
+      {{ end }}
+      <li>
+        <a href="{{ $link | safeURL }}" {{ $target | safeHTMLAttr }} data-toggle="tooltip" data-placement="top" title="OHDSI Forum">
+          <i class="fas fa-globe"></i>
+        </a>
+      </li>
+    {{ end }}
+    {{ else }}
+      {{ if $generatedFileData }}
+      {{ $link := $generatedFileData.user.website }}
+      {{ $scheme := (urls.Parse $link).Scheme }}
+      {{ $target := "" }}
+      {{ if not $scheme }}
+        {{ $link = .link | relLangURL }}
+      {{ else if in (slice "http" "https") $scheme }}
+        {{ $target = "target=\"_blank\" rel=\"noopener\"" }}
+      {{ end }}
+      <li>
+        <a href="{{ $link | safeURL }}" {{ $target | safeHTMLAttr }} data-toggle="tooltip" data-placement="top" title="OHDSI Forum">
+          <i class="fas fa-globe"></i>
+        </a>
+      </li>
+      {{ end }}
     {{ end }}
   </ul>
 {{ end }}

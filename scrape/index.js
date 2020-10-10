@@ -2,15 +2,37 @@ const { exec } = require("child_process");
 const axios = require('axios');
 const fs = require('fs');
 const YAML = require('yamljs');
+const { test } = require("gray-matter");
 
-const githubHandle = 'https://api.github.com/users/ohdsi-studies/repos';
-const repos = [];
+const githubAccountUri = 'https://api.github.com/users/ohdsi-studies/repos';
+let repositories = [];
+
+
 
 main();
 
+
+
 async function main() {
+
+  repositories = await getRepositoriesFrom(githubAccountUri)
+  console.log(`Found ${repositories.length} repositories.\n`)
+  
+  let addedCounter = 0
+
+  for (const [index, repository] of repositories.entries()) {
+    // if( index<1 ) { 
+    console.log(`Scrape Repo #${index + 1} - ${repository.name}`)
+    await scrapeRepository(repository)
+    // }
+  }
+  console.log(`\nScraped total number of ${repositories.length} repositories. Added ${addedCounter} with tag "COVID-19" to content.`)
+}
+
+async function getRepositoriesFrom(githubAccountUri) {
+  const repos = []
   try {
-    const reposResult = await axios.get(githubHandle);
+    const reposResult = await axios.get(githubAccountUri);
     for (var i = 0; i < reposResult.data.length; i++) {
       const repo = {
         name: reposResult.data[i].name,
@@ -20,92 +42,107 @@ async function main() {
       repos.push(repo);
     }
   } catch (error) {
-    console.log(error);
+    console.log(error.message);
   }
+  return repos
+} 
 
-  console.log(`Found ${repos.length} repositories.\n`);
+async function scrapeRepository(repository) {
+  let response;
+  try {
+    response = await axios.get(repository.rawReadmeUrl);
+  } catch (error) {
+    console.log(error.message)
+    return error
+  }
+  const html = response.data;
+  const linesArray = html.split(/\r?\n/g)
+  const extData = {}
 
-  let addedCounter = 0;
+  let hCounter = 0;
+  let endOfList = 1000;
 
-  for (const [index, item] of repos.entries()) {
-    console.log(`Scrape Repo #${index + 1} - ${item.name}`);
-
-    let response;
-    try {
-      response = await axios.get(item.rawReadmeUrl);
-    } catch (error) {
-      console.log(error.message);
+  const description = [];
+  for (let i = 0; i < linesArray.length; i++) {
+    if (hCounter > 1) break;
+    const line = linesArray[i];
+    if (line === "") continue;
+    if (linesArray[i + 1].indexOf("===") === 0 || line.indexOf("#") === 0) {
+      hCounter++;
+      if (hCounter === 1) {
+        extData.title = line
+      }
       continue;
     }
-    const html = response.data;
-    const linesArray = html.split(/\r?\n/g)
-    const extData = {}
-
-    let hCounter = 0;
-    let endOfList = 1000;
-
-    const description = [];
-
-    for (let i = 0; i < linesArray.length; i++) {
-      if (hCounter > 1) break;
-      const line = linesArray[i];
-      if (line === "") continue;
-      if (linesArray[i + 1].indexOf("===") === 0 || line.indexOf("#") === 0) {
-        hCounter++;
-        if (hCounter === 1) {
-          extData.title = line
+    if (line.toLowerCase().indexOf('Analytics use case(s):'.toLowerCase()) !== -1) {
+      extData.study_usecase = scrapeArrayOfUseCaseFrom(line)
+    } else if (line.toLowerCase().indexOf('Study type:'.toLowerCase()) !== -1) {
+      extData.study_type = scrapeArrayOfStudyTypeFrom(line) //this.scrapeStringFrom(line)
+    } else if (line.toLowerCase().indexOf('Tags:'.toLowerCase()) !== -1) {
+      extData.tags = this.scrapeArrayOfStringFrom(line)
+    } else if (line.toLowerCase().indexOf('Study lead:'.toLowerCase()) !== -1) {
+      extData.leads = this.scrapeArrayOfStringFrom(line)
+    } else if (line.toLowerCase().indexOf('Study lead forums tag:'.toLowerCase()) !== -1) {
+      extData.leadForumTags = this.scrapeArrayOfLinkFrom(line)
+    } else if (line.toLowerCase().indexOf('Study start date:'.toLowerCase()) !== -1) {
+      extData.startDate = this.scrapeStringFrom(line)
+    } else if (line.toLowerCase().indexOf('Study end date:'.toLowerCase()) !== -1) {
+      extData.endDate = this.scrapeStringFrom(line)
+    } else if (line.toLowerCase().indexOf('Protocol:'.toLowerCase()) !== -1) {
+      extData.protocol = this.scrapeLinkFrom(line)
+    } else if (line.toLowerCase().indexOf('Publications:'.toLowerCase()) !== -1) {
+      extData.publications = this.scrapeArrayOfLinkFrom(line)
+    } else if (line.toLowerCase().indexOf('Results explorer:'.toLowerCase()) !== -1) {
+      // get all lines after
+      i++;
+      if (linesArray[i].trim().indexOf('-') === 0) {
+        const results = [];
+        while (linesArray[i].trim().indexOf('-') === 0) {
+          results.push(linesArray[i])
+          i++;
         }
-        continue;
-      }
-      if (line.toLowerCase().indexOf('Analytics use case(s):'.toLowerCase()) !== -1) {
-        extData.study_usecase = scrapeArrayOfUseCaseFrom(line)
-      } else if (line.toLowerCase().indexOf('Study type:'.toLowerCase()) !== -1) {
-        extData.study_type = scrapeArrayOfStudyTypeFrom(line) //this.scrapeStringFrom(line)
-      } else if (line.toLowerCase().indexOf('Tags:'.toLowerCase()) !== -1) {
-        extData.tags = this.scrapeArrayOfStringFrom(line)
-      } else if (line.toLowerCase().indexOf('Study lead:'.toLowerCase()) !== -1) {
-        extData.leads = this.scrapeArrayOfStringFrom(line)
-      } else if (line.toLowerCase().indexOf('Study lead forums tag:'.toLowerCase()) !== -1) {
-        extData.leadForumTags = this.scrapeArrayOfLinkFrom(line)
-      } else if (line.toLowerCase().indexOf('Study start date:'.toLowerCase()) !== -1) {
-        extData.startDate = this.scrapeStringFrom(line)
-      } else if (line.toLowerCase().indexOf('Study end date:'.toLowerCase()) !== -1) {
-        extData.endDate = this.scrapeStringFrom(line)
-      } else if (line.toLowerCase().indexOf('Protocol:'.toLowerCase()) !== -1) {
-        extData.protocol = this.scrapeLinkFrom(line)
-      } else if (line.toLowerCase().indexOf('Publications:'.toLowerCase()) !== -1) {
-        extData.publications = this.scrapeArrayOfLinkFrom(line)
-      } else if (line.toLowerCase().indexOf('Results explorer:'.toLowerCase()) !== -1) {
-        // get all lines after
-        i++;
-        if (linesArray[i].trim().indexOf('-') === 0) {
-          const results = [];
-          while (linesArray[i].trim().indexOf('-') === 0) {
-            results.push(linesArray[i])
-            i++;
-          }
-          i--;
-          endOfList = i;
-          extData.results = this.scrapeArrayOfLinkFromListOf(results)
-        } else {
-          i--;
-          endOfList = i;
-          extData.results = this.scrapeArrayOfLinkFrom(line)
-        }
-      }
-      if (i > endOfList) {
-        description.push(line);
+        i--;
+        endOfList = i;
+        extData.results = this.scrapeArrayOfLinkFromListOf(results)
+      } else {
+        i--;
+        endOfList = i;
+        extData.results = this.scrapeArrayOfLinkFrom(line)
       }
     }
+    if (i > endOfList) {
+      description.push(line);
+    }
+  }
 
-    if (extData.leadForumTags && extData.leadForumTags.length > 0) {
-      const authors = extData.leadForumTags.map((item => item.name.replace('[', '').replace(']', '')));
-      extData.authors = authors;
+  if (extData.leadForumTags && extData.leadForumTags.length > 0) {
+    const authors = extData.leadForumTags.map((item => item.name.replace('[', '').replace(']', '')));
+    extData.authors = authors;
+  } else {
+    extData.authors = [];
+  }
+
+  extData.description = description.join('\n');
+
+    //console.log(`End: Scrape Repo #${index} - ${item.name}`);
+  if (extData.tags && extData.tags.includes('COVID-19')) {
+    if (fs.existsSync(`../content/study/${repository.name}/index.md`)) {
+      removeReadmePart(repository, extData)
     } else {
-      extData.authors = [];
+      exec(`cd .. && hugo new study/${repository.name}`, (error, data, getter) => {
+        if (error) {
+          return;
+        }
+        if (getter) {
+          return;
+        }
+        removeReadmePart(repository, extData)
+      });
     }
+    console.log(`Added to content`);
+    //addedCounter++;
 
-    extData.authors.forEach(author => {
+    extData.authors.forEach(async(author) => {
       // create author
       if (fs.existsSync(`../content/authors/${author}/_index.md`)) {
         //removeAuthorReadmePart(item, extData)
@@ -119,34 +156,22 @@ async function main() {
           }
           //removeAuthorReadmePart(item, extData)
         });
+        
+        
       }
+  
+      const authorContent = await axios.get(`https://forums.ohdsi.org/u/${author}.json`);
+      //console.log(authorContent.data)
+      fs.writeFile(`../content/authors/${author}/generated.json`, JSON.stringify(authorContent.data),'utf8', (err) => {
+        if(err){
+          console.log("WriteFile Error",err)
+        }
+      })
     });
-
-    extData.description = description.join('\n');
-
-    //console.log(`End: Scrape Repo #${index} - ${item.name}`);
-    if (extData.tags && extData.tags.includes('COVID-19')) {
-      if (fs.existsSync(`../content/study/${item.name}/index.md`)) {
-        removeReadmePart(item, extData)
-      } else {
-        exec(`cd .. && hugo new study/${item.name}`, (error, data, getter) => {
-          if (error) {
-            return;
-          }
-          if (getter) {
-            return;
-          }
-          removeReadmePart(item, extData)
-        });
-      }
-      console.log(`Added to content`);
-      addedCounter++;
-    } else {
-      //console.log('does not have covid tag');
-    }
-
+  
+  } else {
+    //console.log('does not have covid tag');
   }
-  console.log(`\nScraped total number of ${repos.length} repositories. Added ${addedCounter} with tag "COVID-19" to content.`)
 }
 
 

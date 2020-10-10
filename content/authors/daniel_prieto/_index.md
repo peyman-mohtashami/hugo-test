@@ -27,14 +27,15 @@ organizations:
 bio: 
 
 # Person's interests
-interests:
-- 
+# interests:
+# - 
+
 # Person's education
-education:
-  courses:
-  - course: 
-    institution: 
-    year: 
+# education:
+#   courses:
+#   - course: 
+#     institution: 
+#     year: 
 
 # Academic Networking
 accounts:
